@@ -1,12 +1,12 @@
 package pl.tajchert.notificationresponse;
 
-import android.app.RemoteInput;
+import android.app.Notification;
+import android.app.PendingIntent;
 
 import java.util.ArrayList;
 
-/**
- * Created by Primosz on 2015-03-21.
- */
 public class NotificationWear {
-    public ArrayList<RemoteInput> remoteInputs = new ArrayList<>();
+    public PendingIntent pendingIntent;
+    public ArrayList<android.support.v4.app.RemoteInput> remoteInputs = new ArrayList<>();
+    public ArrayList<Notification> pages = new ArrayList<>();
 }

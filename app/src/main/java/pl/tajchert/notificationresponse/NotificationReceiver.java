@@ -4,17 +4,18 @@ package pl.tajchert.notificationresponse;
 import android.annotation.TargetApi;
 import android.app.Notification;
 import android.os.Build;
-import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
-/**
- * Created by Primosz on 2015-03-21.
- */
+import de.greenrobot.event.EventBus;
+
+
 public class NotificationReceiver extends NotificationListenerService {
     private static final String TAG = "NotificationReceiver";
 
@@ -25,33 +26,28 @@ public class NotificationReceiver extends NotificationListenerService {
     public void onNotificationPosted(StatusBarNotification sbn) {
         super.onNotificationPosted(sbn);
         android.os.Debug.waitForDebugger();
-        Bundle bundle = sbn.getNotification().extras;
-        for (String key : bundle.keySet()) {
-            Object value = bundle.get(key);
 
-            if(key != null && value != null){
-                Log.d(TAG, String.format("%s %s (%s)", key, value.toString(), value.getClass().getName()));
-            }
-            if("android.wearable.EXTENSIONS".equals(key)){
-                Bundle wearBundle = ((Bundle) value);
-                for (String keyInner : wearBundle.keySet()) {
-                    Object valueInner = wearBundle.get(keyInner);
+        ArrayList<NotificationWear> wearNotifications = new ArrayList<>();
 
-                    if(keyInner != null && valueInner != null){
-                        if("actions".equals(keyInner) && valueInner instanceof ArrayList){
-                            ArrayList<Notification.Action> actions = new ArrayList<>();
-                            actions.addAll((ArrayList) valueInner);
-                            for(Notification.Action act : actions){
-                                if(act.getRemoteInputs() != null){
-                                    new NotificationWear().remoteInputs.addAll(Arrays.asList(act.getRemoteInputs()));
-                                }
-                            }
-                        }
-                    }
-                }
+
+
+        NotificationCompat.WearableExtender wearableExtender = new NotificationCompat.WearableExtender(sbn.getNotification());
+        if(wearableExtender != null) {
+            List<NotificationCompat.Action> actions = wearableExtender.getActions();
+            NotificationWear notificationWear = new NotificationWear();
+            for(NotificationCompat.Action act : actions) {
+                notificationWear.remoteInputs.addAll(Arrays.asList(act.getRemoteInputs()));
             }
+
+            List<Notification> pages = wearableExtender.getPages();
+            notificationWear.pages.addAll(pages);
+            notificationWear.pendingIntent = sbn.getNotification().contentIntent;
+
+            wearNotifications.add(notificationWear);
+            EventBus.getDefault().post(notificationWear);
         }
-        Log.d(TAG, "onNotificationPosted ");
+
+        Log.d(TAG, "onNotificationPosted " + wearNotifications);
     }
 
     @Override
