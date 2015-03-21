@@ -11,6 +11,8 @@ import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.widget.Toast;
 
+import java.util.Stack;
+
 import butterknife.ButterKnife;
 import butterknife.OnClick;
 import de.greenrobot.event.EventBus;
@@ -19,7 +21,7 @@ import de.greenrobot.event.EventBus;
 public class MainActivity extends ActionBarActivity {
     public static final String TAG = "MainActivity";
     private static final String EXTRA_VOICE_REPLY = "extra_voice_reply";
-    private NotificationWear latestNotification;  //Latest notification with RemoteInput that we can reply to
+    private Stack<NotificationWear> notificationsStack = new Stack<NotificationWear>();
     
 
     @Override
@@ -31,40 +33,69 @@ public class MainActivity extends ActionBarActivity {
     
     public void onEvent(NotificationWear notificationWear){
         //New notification with RemoteInput incoming
-        latestNotification = notificationWear;
-        Toast.makeText(MainActivity.this, "New cached notification.", Toast.LENGTH_SHORT).show();
+        notificationsStack.push(notificationWear);
     }
+
+    //Most interesting code here - start
     
     @OnClick(R.id.buttonReply) void replyToLastNotification(){
-        if(latestNotification == null || latestNotification.remoteInputs == null || latestNotification.remoteInputs.size() == 0) {
+        //We take last notification with option to replay from stack and try to fill RemoteInput with our text and send it back
+        if(notificationsStack.isEmpty()){
             Toast.makeText(MainActivity.this, "No notification :(", Toast.LENGTH_LONG).show();
             return;
         }
-        RemoteInput remoteInput = latestNotification.remoteInputs.get(0);
+
+        NotificationWear notificationWear = notificationsStack.pop();
+        if(notificationWear == null) {
+            Toast.makeText(MainActivity.this, "No notification :(", Toast.LENGTH_LONG).show();
+            return;
+        }
+        RemoteInput[] remoteInputs = new RemoteInput[notificationWear.remoteInputs.size()];
+
+        Intent localIntent = new Intent();
+        localIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        Bundle localBundle = notificationWear.bundle;
+        int i = 0;
+        for(RemoteInput remoteIn : notificationWear.remoteInputs){
+            getDetailsOfNotification(remoteIn);
+            remoteInputs[i] = remoteIn;
+            localBundle.putCharSequence(remoteInputs[i].getResultKey(), "Our answer");//This work, apart from Hangouts as probably they need additional parameter (notification_tag?)
+            i++;
+        }
+
+        /*
+        //Others that I had tried, and failed
+        localBundle.putCharSequence(resultKey, "Random1 answer");
+        localIntent.putExtra(resultKey, "Random2 answer");
+        localIntent.putExtra("resultKey", "Random3 Answer");
+        localIntent.setClipData(ClipData.newIntent("android.remoteinput.results", localIntent));*/
+        RemoteInput.addResultsToIntent(remoteInputs, localIntent, localBundle);
+        try {
+            notificationWear.pendingIntent.send(MainActivity.this, 0, localIntent);
+            //TODO find how to call it and not display Activity
+        } catch (PendingIntent.CanceledException e) {
+            Log.e(TAG, "replyToLastNotification error: " + e.getLocalizedMessage());
+        }
+    }
+
+    //Most interesting code here - end
+
+    private void getDetailsOfNotification(RemoteInput remoteInput) {
+        //Some more details of RemoteInput... no idea what for but maybe it will be useful at some point
         String resultKey = remoteInput.getResultKey();
         String label = remoteInput.getLabel().toString();
         Boolean canFreeForm = remoteInput.getAllowFreeFormInput();
-        Bundle bundle = remoteInput.getExtras();
         if(remoteInput.getChoices() != null && remoteInput.getChoices().length > 0) {
             String[] possibleChoices = new String[remoteInput.getChoices().length];
             for(int i = 0; i < remoteInput.getChoices().length; i++){
                 possibleChoices[i] = remoteInput.getChoices()[i].toString();
             }
         }
-
-        bundle.putString(resultKey, "Answer");
-        Intent launchIntent = getPackageManager().getLaunchIntentForPackage(latestNotification.pendingIntent.getCreatorPackage());
-        RemoteInput[] remoteInputs = new RemoteInput[1];
-        remoteInputs[0] = remoteInput;
-        RemoteInput.addResultsToIntent(remoteInputs,launchIntent, bundle);
-        startActivity(launchIntent);
-        launchIntent.putExtra(resultKey, "Answer");
-
-        Log.d(TAG, "replyToLastNotification ");
     }
-    
-    
+
+
     @OnClick(R.id.buttonRandomNotif) void sendRandomNotification() {
+        //To release sample notification with WearableExtender and RemoteInput - in test purposes
         Intent intent =  new Intent(MainActivity.this, MainActivity.class);
         String[] replyChoices ={"Yes", "No"};
 
@@ -101,7 +132,11 @@ public class MainActivity extends ActionBarActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        EventBus.getDefault().register(this);
+        if(!EventBus.getDefault().isRegistered(this)){
+            //As we unregister only onDestroy
+            EventBus.getDefault().register(this);
+        }
+        //If you are debugging you need to turn it off and on again on each new app deployment
         if(Settings.Secure.getString(this.getContentResolver(), "enabled_notification_listeners") != null) {
             if (Settings.Secure.getString(this.getContentResolver(),"enabled_notification_listeners").contains(getApplicationContext().getPackageName())) {
                 //service is enabled do nothing
@@ -112,7 +147,17 @@ public class MainActivity extends ActionBarActivity {
         } else {
             Log.d(TAG, "onResume no Google Play Services");
         }
-        Toast.makeText(MainActivity.this, getMessageText(getIntent()), Toast.LENGTH_LONG).show();
+
+        //Test if our test notification works
+        String textFromInput = null;
+        try {
+            textFromInput = getMessageText(getIntent()).toString();
+        } catch (Exception e) {
+            //no text from RemoteInput, carry on.
+        }
+        if(textFromInput != null && textFromInput.length() > 0 ){
+            Toast.makeText(MainActivity.this, textFromInput, Toast.LENGTH_LONG).show();
+        }
     }
 
     private CharSequence getMessageText(Intent intent) {
@@ -129,8 +174,8 @@ public class MainActivity extends ActionBarActivity {
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
+    protected void onDestroy() {
         EventBus.getDefault().unregister(this);
+        super.onDestroy();
     }
 }
