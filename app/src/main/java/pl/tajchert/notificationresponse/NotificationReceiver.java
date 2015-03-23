@@ -1,9 +1,8 @@
 package pl.tajchert.notificationresponse;
 
 
-import android.annotation.TargetApi;
 import android.app.Notification;
-import android.os.Build;
+import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.support.v4.app.NotificationCompat;
@@ -16,40 +15,74 @@ import de.greenrobot.event.EventBus;
 
 
 public class NotificationReceiver extends NotificationListenerService {
-    @TargetApi(Build.VERSION_CODES.KITKAT)
+
     @Override
-    public void onNotificationPosted(StatusBarNotification sbn) {
-        super.onNotificationPosted(sbn);
-        android.os.Debug.waitForDebugger();
+    public void onNotificationPosted(StatusBarNotification statusBarNotification) {
+        super.onNotificationPosted(statusBarNotification);
 
-        ArrayList<NotificationWear> wearNotifications = new ArrayList<>();
-
-        //Most interesting code here - start
-
-        NotificationCompat.WearableExtender wearableExtender = new NotificationCompat.WearableExtender(sbn.getNotification());
-        //TODO test on "com.whatsapp", "com.facebook.orca", "com.google.android.talk", "jp.naver.line.android", "org.telegram.messenger"
-        List<NotificationCompat.Action> actions = wearableExtender.getActions();
-        NotificationWear notificationWear = new NotificationWear();
-        for(NotificationCompat.Action act : actions) {
-            notificationWear.remoteInputs.addAll(Arrays.asList(act.getRemoteInputs()));
+        if(!statusBarNotification.isOngoing()) {
+            //As we want to ignore ongoing notifications
+            EventBus.getDefault().post(extractWearNotification(statusBarNotification));
         }
-        notificationWear.bundle = sbn.getNotification().extras;
-        notificationWear.tag = sbn.getTag();
-
-        List<Notification> pages = wearableExtender.getPages();
-        notificationWear.pages.addAll(pages);
-        notificationWear.pendingIntent = sbn.getNotification().contentIntent;
-
-        if(!sbn.isOngoing()) {
-            //As probably we don want to add ongoing notifications
-            wearNotifications.add(notificationWear);
-            EventBus.getDefault().post(notificationWear);
-        }
-        //Most interesting code here - end
     }
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
         super.onNotificationRemoved(sbn);
+    }
+
+    /**
+     * To extract WearNotification with RemoteInputs that we can use to respond later on
+     * @param statusBarNotification
+     * @return
+     */
+    private NotificationWear extractWearNotification(StatusBarNotification statusBarNotification) {
+        //Should work for communicators such:"com.whatsapp", "com.facebook.orca", "com.google.android.talk", "jp.naver.line.android", "org.telegram.messenger"
+        NotificationWear notificationWear = new NotificationWear();
+
+        NotificationCompat.WearableExtender wearableExtender = new NotificationCompat.WearableExtender(statusBarNotification.getNotification());
+        List<NotificationCompat.Action> actions = wearableExtender.getActions();
+        for(NotificationCompat.Action act : actions) {
+            notificationWear.remoteInputs.addAll(Arrays.asList(act.getRemoteInputs()));
+        }
+        List<Notification> pages = wearableExtender.getPages();
+        notificationWear.pages.addAll(pages);
+
+        notificationWear.bundle = statusBarNotification.getNotification().extras;
+        notificationWear.tag = statusBarNotification.getTag();//TODO find how to pass Tag with sending PendingIntent, might fix Hangout problem
+
+        notificationWear.pendingIntent = statusBarNotification.getNotification().contentIntent;
+        return notificationWear;
+    }
+
+    /**
+     * Sample of how it is possible to do manually without using NotificationCompat.WearableExtender constructor
+     * @param statusBarNotification
+     * @return
+     */
+    private NotificationWear extractOldWearNotification(StatusBarNotification statusBarNotification) {
+        //Should work for communicators such:"com.whatsapp", "com.facebook.orca", "com.google.android.talk", "jp.naver.line.android", "org.telegram.messenger"
+        NotificationWear notificationWear = new NotificationWear();
+
+        Bundle bundle = statusBarNotification.getNotification().extras;
+        for (String key : bundle.keySet()) {
+            Object value = bundle.get(key);
+
+            if("android.wearable.EXTENSIONS".equals(key)){
+                Bundle wearBundle = ((Bundle) value);
+                for (String keyInner : wearBundle.keySet()) {
+                    Object valueInner = wearBundle.get(keyInner);
+
+                    if(keyInner != null && valueInner != null){
+                        if("actions".equals(keyInner) && valueInner instanceof ArrayList){
+                            ArrayList<Notification.Action> actions = new ArrayList<>();
+                            actions.addAll((ArrayList) valueInner);
+                            //get remote inputs and save them to notificationWear... long spaghetti code
+                        }
+                    }
+                }
+            }
+        }
+        return notificationWear;
     }
 }
