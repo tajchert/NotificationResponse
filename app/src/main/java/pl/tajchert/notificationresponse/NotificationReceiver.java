@@ -29,6 +29,7 @@ public class NotificationReceiver extends NotificationListenerService {
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
         super.onNotificationRemoved(sbn);
+        //TODO remove notification from stack in Activity
     }
 
     /**

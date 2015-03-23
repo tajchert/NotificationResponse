@@ -95,7 +95,6 @@ public class MainActivity extends ActionBarActivity {
         RemoteInput.addResultsToIntent(remoteInputs, localIntent, localBundle);
         try {
             notificationWear.pendingIntent.send(MainActivity.this, 0, localIntent);
-            //TODO find how to call it and not display Activity
         } catch (PendingIntent.CanceledException e) {
             Log.e(TAG, "replyToLastNotification error: " + e.getLocalizedMessage());
         }
@@ -121,7 +120,7 @@ public class MainActivity extends ActionBarActivity {
     @OnClick(R.id.buttonRandomNotif) void sendRandomNotification() {
         //To release sample notification with WearableExtender and RemoteInput - in test purposes
         Intent intent =  new Intent(MainActivity.this, MainActivity.class);
-        String[] replyChoices ={"Yes", "No"};
+        String[] replyChoices = {"Yes", "No"};
 
         RemoteInput remoteInput = new RemoteInput.Builder(EXTRA_VOICE_REPLY)
                 .setLabel("Label")
@@ -160,7 +159,6 @@ public class MainActivity extends ActionBarActivity {
             //As we unregister only onDestroy
             EventBus.getDefault().register(this);
         }
-        //If you are debugging you need to turn it off and on again on each new app deployment
         if(Settings.Secure.getString(this.getContentResolver(), "enabled_notification_listeners") != null) {
             if (Settings.Secure.getString(this.getContentResolver(),"enabled_notification_listeners").contains(getApplicationContext().getPackageName())) {
                 //service is enabled do nothing
@@ -171,7 +169,10 @@ public class MainActivity extends ActionBarActivity {
         } else {
             Log.d(TAG, "onResume no Google Play Services");
         }
+        displayTextToast();
+    }
 
+    private void displayTextToast() {
         //Test if our test notification works
         String textFromInput = null;
         try {
