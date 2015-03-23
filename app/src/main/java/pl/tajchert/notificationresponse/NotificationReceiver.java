@@ -39,11 +39,14 @@ public class NotificationReceiver extends NotificationListenerService {
     private NotificationWear extractWearNotification(StatusBarNotification statusBarNotification) {
         //Should work for communicators such:"com.whatsapp", "com.facebook.orca", "com.google.android.talk", "jp.naver.line.android", "org.telegram.messenger"
         NotificationWear notificationWear = new NotificationWear();
+        notificationWear.packageName = statusBarNotification.getPackageName();
 
         NotificationCompat.WearableExtender wearableExtender = new NotificationCompat.WearableExtender(statusBarNotification.getNotification());
         List<NotificationCompat.Action> actions = wearableExtender.getActions();
         for(NotificationCompat.Action act : actions) {
-            notificationWear.remoteInputs.addAll(Arrays.asList(act.getRemoteInputs()));
+            if(act != null && act.getRemoteInputs() != null) {
+                notificationWear.remoteInputs.addAll(Arrays.asList(act.getRemoteInputs()));
+            }
         }
         List<Notification> pages = wearableExtender.getPages();
         notificationWear.pages.addAll(pages);

@@ -8,12 +8,17 @@ import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
 import android.support.v4.app.RemoteInput;
 import android.support.v7.app.ActionBarActivity;
+import android.support.v7.widget.DefaultItemAnimator;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.widget.Toast;
 
+import java.util.Arrays;
 import java.util.Stack;
 
 import butterknife.ButterKnife;
+import butterknife.InjectView;
 import butterknife.OnClick;
 import de.greenrobot.event.EventBus;
 
@@ -22,6 +27,10 @@ public class MainActivity extends ActionBarActivity {
     public static final String TAG = "MainActivity";
     private static final String EXTRA_VOICE_REPLY = "extra_voice_reply";
     private Stack<NotificationWear> notificationsStack = new Stack<NotificationWear>();
+    private AdapterNotifList mAdapter;
+
+    @InjectView(R.id.recyclerView)
+    RecyclerView recyclerNotifList;
     
 
     @Override
@@ -29,11 +38,25 @@ public class MainActivity extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         ButterKnife.inject(this);
+        recyclerNotifList.setLayoutManager(new LinearLayoutManager(this));
+        udateRecycler();
     }
     
-    public void onEvent(NotificationWear notificationWear){
+    public void onEvent(NotificationWear notificationWear) {
         //New notification with RemoteInput incoming
         notificationsStack.push(notificationWear);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                udateRecycler();
+            }
+        });
+    }
+
+    private void udateRecycler() {
+        mAdapter = new AdapterNotifList(Arrays.asList(notificationsStack.toArray(new NotificationWear[notificationsStack.size()])));
+        recyclerNotifList.setAdapter(mAdapter);
+        recyclerNotifList.setItemAnimator(new DefaultItemAnimator());
     }
 
     //Most interesting code here - start
@@ -76,6 +99,7 @@ public class MainActivity extends ActionBarActivity {
         } catch (PendingIntent.CanceledException e) {
             Log.e(TAG, "replyToLastNotification error: " + e.getLocalizedMessage());
         }
+        udateRecycler();
     }
 
     //Most interesting code here - end

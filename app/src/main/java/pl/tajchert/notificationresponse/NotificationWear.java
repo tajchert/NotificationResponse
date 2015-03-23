@@ -7,6 +7,7 @@ import android.os.Bundle;
 import java.util.ArrayList;
 
 public class NotificationWear {
+    public String packageName = "";
     public PendingIntent pendingIntent;
     public ArrayList<android.support.v4.app.RemoteInput> remoteInputs = new ArrayList<>();
     public ArrayList<Notification> pages = new ArrayList<>();
