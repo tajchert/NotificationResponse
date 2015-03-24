@@ -18,7 +18,7 @@ public class NotificationReceiver extends NotificationListenerService {
 
     @Override
     public void onNotificationPosted(StatusBarNotification statusBarNotification) {
-        super.onNotificationPosted(statusBarNotification);
+        //super.onNotificationPosted(statusBarNotification);
 
         if(!statusBarNotification.isOngoing()) {
             //As we want to ignore ongoing notifications
@@ -81,6 +81,11 @@ public class NotificationReceiver extends NotificationListenerService {
                         if("actions".equals(keyInner) && valueInner instanceof ArrayList){
                             ArrayList<Notification.Action> actions = new ArrayList<>();
                             actions.addAll((ArrayList) valueInner);
+                            for(Notification.Action act : actions) {
+                                if (act.getRemoteInputs() != null) {//API > 20 needed
+                                    android.app.RemoteInput[] remoteInputs = act.getRemoteInputs();
+                                }
+                            }
                             //get remote inputs and save them to notificationWear... long spaghetti code
                         }
                     }
